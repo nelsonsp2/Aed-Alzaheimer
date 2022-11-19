@@ -1,0 +1,226 @@
+---
+title: "Proyecto Análisis estadístico de datos"
+output: html_notebook
+---
+Dayana Valentina González Vargas  
+María Fernanda Rodríguez Conde  
+Nelson Santiago Guayazan Palacios  
+---
+
+Importamos nuestra base de datos y la guardamos en la tabla df.
+```{r}
+ library(readxl)
+  df <- read_excel("~/Análisis ED/Proyecto/MRI_Alzheimer_csv.xlsx")
+  names(df) <- c("Suject.ID","MRI.ID","Group","Visit","MR.delay.Time(constrst)","M.F","Dominant.Hand","Age","Years.of.Education","Socioeconomic.Status","Mini.Mental.State.Examination","Clinical.Dementia.Rating","Estimated.total.intracranial.volume","Normalize.Whole.Brain.Volume","Atlas.Scaling.Factor")
+  print(df)
+```
+**MANOVA:**  
+Analizaremos los efectos que produce el examen minimo mental, la edad, los anios de educacion y el tamanio del cerebro en cada grupo (Dementes/ No dementes / Convertidos)
+
+
+```{r}
+fit <- manova(cbind(Age,Years.of.Education, Mini.Mental.State.Examination, Estimated.total.intracranial.volume) ~ Group, data=df)
+(fit.summary <- summary(fit, test = "Wilks")) 
+ 3.741825*exp(-5)
+```
+
+el valor p es muy pequenio, por lo tanto se rechaza la hipotesis nula, es decir, al menos una de las variables afecta la clasificacion de las personas.
+
+
+
+**TWO WAY MANOVA:**  
+
+**Interacción entre sexo y estrato socio-ecónomico**
+**Utilizando la función manova**
+```{r}
+  fit <- manova(cbind(Age,Years.of.Education, Mini.Mental.State.Examination, Estimated.total.intracranial.volume) ~ M.F*Socioeconomic.Status, data=df)
+(fit.summary <- summary(fit, test = "Wilks")) 
+
+```
+
+
+El valor p es muy grande en la interacción por lo cual concluimos que el sexo y el estrato socioeconomico no tienen alguna relación relacion.Pero, las variables por separado si tienen algún efecto con las variables independientes ya que en ambas se puede rechazar la hiposis nula de que no se cause algún efecto.
+
+**ANOVA**
+
+*Efectos de variables en el MMSE*
+
+HIPOTESIS NULA: El MMSE no tiene un efecto en las variables.
+HIPOTESIS ALTERNATIVA: El MMSE si tiene un efecto significativo en las variables.
+
+```{r}
+
+result <- aov(lm(Mini.Mental.State.Examination~Clinical.Dementia.Rating*Group,data = df))
+summary(result)
+
+```
+El valor p es muy pequeno en CDR, por lo cual concluimos que si hay efectos significativos entre CDR y MMSE.
+Por otro lado el grupo no tiene efectos significativos con el MMSE. 
+La interaccion entre ambas variables tambien presenta un efecto en el MMSE.
+
+**ANOVA**
+*Efectos de variables en el CDR*
+
+HIPOTESIS NULA: El CDR no tiene un efecto en las variables.
+HIPOTESIS ALTERNATIVA: El CDR si tiene un efecto significativo en las variables.
+
+```{r}
+
+result <- aov(lm(Clinical.Dementia.Rating~Estimated.total.intracranial.volume*Mini.Mental.State.Examination,data = df))
+summary(result)
+
+```
+El MMSE si tiene efectos significativos en el CDR mientras que la del volumen del craneo no tiene efecto alguno.
+La interaccion entre ambas variables si presenta un efecto en el examen CDR
+
+**ANOVA**
+*Efectos de variables en el volumen del cerebro*
+
+HIPOTESIS NULA: El volumen del cerebro no tiene un efecto en las variables.
+HIPOTESIS ALTERNATIVA: El volumen del cerebro si tiene un efecto significativo en las variables.
+
+```{r}
+
+result <- aov(lm(Estimated.total.intracranial.volume ~Age*Years.of.Education,data = df))
+summary(result)
+
+```
+Los anios de educacion si tienen un efecto en el volumen intracranial del cerebro mientras que la edad y la interaccion entre ambas variables no generan un efecto en el volumen.
+
+
+**CLASIFICACIÓN**
+
+*Clasificación por CDR*
+```{r}
+library(MASS)
+lda.fit <- lda(df[c(8,9,11)], df$Clinical.Dementia.Rating)    # Se puede hacer también con formula lda.fit
+lda.fit
+```
+
+```{r}
+
+x0_df = data.frame(Age= 80,Years.of.Education= 12,Mini.Mental.State.Examination= 22) 
+lda.pred <- predict(lda.fit,    x0_df)
+
+lda.pred
+
+```
+
+
+```{r}
+lda.pred_total<-predict(lda.fit,df[c(8,9,11)]) 
+table(df$Clinical.Dementia.Rating,lda.pred_total$class)
+```
+
+**CLASIFICACIÓN**
+*Clasificación por grupo*
+```{r}
+lda.fit <- lda(df[c(8,11,13)], df$Group)    #Se puede hacer también con formula lda.fit
+lda.fit
+```
+
+```{r}
+x0_df = data.frame(Age= 75,Mini.Mental.State.Examination= 27,Estimated.total.intracranial.volume= 1372) 
+lda.pred <- predict(lda.fit,x0_df)
+
+lda.pred
+```
+
+```{r}
+lda.pred_total<-predict(lda.fit,df[c(8,11,13)]) 
+table(df$Group,lda.pred_total$class)
+```
+
+**PCA - Análisis de componentes principales**
+
+```{r}
+  dati <- df[8:13]
+  dati
+```
+
+```{r}
+ pca <- princomp(dati, cor = TRUE)
+pca
+summary(pca)
+
+```
+```{r}
+R <- cor(dati)
+( propios <- eigen(R) )
+```
+
+
+```{r}
+corr1 <- propios$vectors[,1] * sqrt(propios$values[1])
+corr2 <- propios$vectors[,2] * sqrt(propios$values[2])
+corr3 <- propios$vectors[,3] * sqrt(propios$values[3])
+corr4 <- propios$vectors[,4] * sqrt(propios$values[4])
+corr5 <- propios$vectors[,5] * sqrt(propios$values[5])
+corr6 <- propios$vectors[,6] * sqrt(propios$values[6])
+
+data.frame(comp1=corr1, comp2=corr2, comp3=corr3, comp4=corr4, comp5=corr5, comp6=corr6, row.names = colnames(dati))
+
+```
+
+
+**Análisis de Factores**
+Estimación de MSE
+```{r}
+ new1 <- df[c(8,9,10,11,13)]
+(fit<-factanal(new1,2,rotation="none"))
+
+```
+```{r}
+  load<-  fit$loadings[,1:2] 
+  plot(load,type="n")    #    set    up    plot
+  text(load,labels=names(new1),cex=.7) # add variable names
+```
+**Rotación**
+```{r}
+  (fit    <-    factanal(new1,2,rotation="varimax"))
+```
+**Gráfica**
+```{r}
+load<-  fit$loadings[,1:2] 
+  plot(load,type="n")    #    set    up    plot
+  text(load,labels=names(new1),cex=.7) # add variable names
+```
+
+
+
+**Clustering jerarquico**
+```{r}
+library(cluster)
+library(purrr)
+library(factoextra)
+hc4<-diana(df)
+pltree(hc4, hang=-1, cex = 0.6)
+rect.hclust(hc4, k = 9, border = 2:10)
+
+```
+**Clustering K-means**
+
+```{r}
+df_clu=df[c(8,11)]
+km.out = kmeans (df_clu ,3 , nstart =40)
+plot(df_clu , col =( km.out$cluster +1) , main =" K-Means Clustering Results with K =3" ,
+     xlab ="age" , ylab ="MMSE" , pch =20 , cex =2)
+
+```
+
+
+```{r}
+df_clu2=df[c(11,10)]
+km.out2 = kmeans (df_clu2 ,3 , nstart =40)
+plot(df_clu2 , col =( km.out2$cluster +1) , main =" K-Means Clustering Results with K =3" ,
+     xlab ="MMSE" , ylab ="Estrato socioeconomico" , pch =20 , cex =2)
+```
+```{r}
+df_clu3=df[c(11,12)]
+km.out3 = kmeans (df_clu3 ,4 , nstart =40)
+plot(df_clu3 , col =( km.out3$cluster +1) , main =" K-Means Clustering Results with K =3" ,
+     xlab ="MMSE" , ylab ="CDR" , pch =20 , cex =2)
+```
+
+
+ 
